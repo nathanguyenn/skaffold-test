@@ -1,0 +1,29 @@
+@MicroserviceExample_HostAddress = http://localhost:5158
+
+### Liveness (no DB)
+GET {{MicroserviceExample_HostAddress}}/healthz
+
+### Readiness (touches DB)
+GET {{MicroserviceExample_HostAddress}}/readyz
+
+### List projects
+GET {{MicroserviceExample_HostAddress}}/projects
+Accept: application/json
+
+### Create a project
+POST {{MicroserviceExample_HostAddress}}/projects
+Content-Type: application/json
+
+{ "name": "Apollo" }
+
+### List a project's tasks
+GET {{MicroserviceExample_HostAddress}}/projects/1/tasks
+Accept: application/json
+
+### Add a task to a project
+POST {{MicroserviceExample_HostAddress}}/projects/1/tasks
+Content-Type: application/json
+
+{ "title": "Land on the moon" }
+
+###

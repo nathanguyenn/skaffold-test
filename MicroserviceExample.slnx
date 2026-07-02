@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MicroserviceExample/MicroserviceExample.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MicroserviceExample.Tests/MicroserviceExample.Tests.csproj" />
+  </Folder>
+</Solution>

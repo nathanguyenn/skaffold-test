@@ -1,0 +1,10 @@
+namespace MicroserviceExample.Models;
+
+public class Project
+{
+    public long Id { get; set; }
+    public required string Name { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public List<TaskItem> Tasks { get; set; } = [];
+}
