@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: microservice-example
+  labels:
+    app.kubernetes.io/name: microservice-example
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: microservice-example
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: microservice-example
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654           # 'app' user baked into the chiseled image
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: tmp               # writable /tmp since the root fs is read-only
+          emptyDir: {}
+      # Apply EF Core migrations once before the app starts. Single replica → no race.
+      # Runs the same image with the `migrate` arg (see Program.cs), then exits.
+      initContainers:
+        - name: migrate
+          image: ghcr.io/nathanguyenn/microservice-example:latest
+          args: ["migrate"]
+          env:
+            - name: ConnectionStrings__Default
+              valueFrom:
+                secretKeyRef:
+                  name: microservice-example-db      # pre-created in poc-anh
+                  key: ConnectionStrings__Default
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+      containers:
+        - name: app
+          image: ghcr.io/nathanguyenn/microservice-example:latest
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: ConnectionStrings__Default
+              valueFrom:
+                secretKeyRef:
+                  name: microservice-example-db
+                  key: ConnectionStrings__Default
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/worker
+                    operator: Exists

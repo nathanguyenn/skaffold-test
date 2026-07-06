@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # Local homelab lab playbook — not for publication (internal infra details)
 dotnet-pg-skaffold-lab.md
+
+# Local-only settings (may contain secrets) — never commit
+appsettings.Local.json

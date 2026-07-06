@@ -1,0 +1,48 @@
+apiVersion: skaffold/v4beta14   # latest schema for skaffold v2.22.1 (verified via `skaffold schema list`)
+kind: Config
+metadata:
+  name: microservice-example
+build:
+  artifacts:
+    # Image name MUST match the ref in k8s/base/deployment.yaml (both the app and
+    # the migrate initContainer) — Skaffold rewrites matching refs with the built tag.
+    - image: ghcr.io/nathanguyenn/microservice-example
+      docker:
+        dockerfile: Dockerfile
+        # The Dockerfile COPYs from src/MicroserviceExample/, so the build context
+        # must be the repo root, not the Dockerfile's dir (which is the same here).
+      context: .
+  local:
+    push: true              # real cluster can't pull from a local daemon → push to ghcr.io
+    useBuildkit: true       # Dockerfile uses `# syntax=` + COPY --link (BuildKit features)
+manifests:
+  kustomize:
+    paths: ["k8s/overlays/dev"]
+deploy:
+  kubectl: {}               # deploys to the CURRENT kubectl context — confirm before `skaffold run`
+verify:
+  # Both checks run as in-cluster Jobs (executionMode.kubernetesCluster) because the
+  # Service ClusterIP DNS is only resolvable from inside the cluster.
+  - name: smoke-health
+    container:
+      name: smoke
+      image: curlimages/curl:8.11.1
+      command: ["/bin/sh", "-c"]
+      args:
+        - "curl -fsS --retry 10 --retry-connrefused --retry-delay 3 http://microservice-example.poc-anh.svc.cluster.local:8080/readyz"
+    executionMode:
+      kubernetesCluster: {}
+  - name: smoke-roundtrip
+    container:
+      name: roundtrip
+      image: curlimages/curl:8.11.1
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          set -e
+          base=http://microservice-example.poc-anh.svc.cluster.local:8080
+          curl -fsS --retry 10 --retry-connrefused --retry-delay 3 -XPOST "$base/projects" \
+            -H 'content-type: application/json' -d '{"name":"smoke"}'
+          curl -fsS "$base/projects" | grep smoke
+    executionMode:
+      kubernetesCluster: {}

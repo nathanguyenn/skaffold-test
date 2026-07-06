@@ -5,6 +5,10 @@ using MicroserviceExample.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Local-only overrides (e.g. dev connection string). Gitignored and absent from the
+// container image, so it's optional — cluster config comes from the env/secret instead.
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
 builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
@@ -15,6 +19,15 @@ builder.Services.AddHealthChecks()
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+// One-shot migration mode: `dotnet MicroserviceExample.dll migrate` (used by the
+// Deployment's init container). Applies EF Core migrations, then exits.
+if (args.Contains("migrate"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
+    return;
+}
 
 // OpenAPI document + interactive Swagger UI. Enabled in all environments for this
 // lab; gate behind app.Environment.IsDevelopment() (or auth) for real production.
