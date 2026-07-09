@@ -5,9 +5,13 @@ using MicroserviceExample.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Local-only overrides (e.g. dev connection string). Gitignored and absent from the
-// container image, so it's optional — cluster config comes from the env/secret instead.
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+// Local-only overrides (e.g. dev connection string). Development only: it must NOT
+// outrank the environment/secret in the cluster, and .dockerignore keeps it out of the
+// image entirely. In Production the connection string comes from ConnectionStrings__Default.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+}
 
 builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("Default")));

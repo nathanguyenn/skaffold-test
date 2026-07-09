@@ -46,3 +46,28 @@ verify:
           curl -fsS "$base/projects" | grep smoke
     executionMode:
       kubernetesCluster: {}
+
+# Profiles auto-select from your CURRENT kube-context (activation.kubeContext), so the
+# correct build/push behavior applies to whichever cluster you're pointed at — no more
+# accidentally pushing to ghcr for a throwaway local run, or deploying to the wrong place.
+# Force one explicitly with `skaffold run -p <name>`; inspect the merged result with
+# `skaffold diagnose -p <name>`.
+profiles:
+  # Bare-metal cluster. Workers pull from ghcr, so push stays true (the base default) —
+  # this profile mainly exists to name the intent and auto-activate on the right context.
+  - name: cluster
+    activation:
+      - kubeContext: anh@tool-chain
+
+  # OrbStack's built-in k8s: skip the ghcr round-trip and run the locally-built image
+  # straight from the daemon (faster, no login).
+  # GOTCHA: only works when your `docker` context ALSO points at OrbStack (same daemon
+  # backs the cluster). On Docker Desktop's daemon the image won't be visible to OrbStack
+  # k8s and pods ImagePull-fail — run `docker context use orbstack` before `-p local`.
+  - name: local
+    activation:
+      - kubeContext: orbstack
+    patches:
+      - op: replace
+        path: /build/local/push
+        value: false

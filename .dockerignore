@@ -5,6 +5,9 @@
 .git/
 .gitignore
 tests/
+# Local-only config (may hold a localhost/dev connection string + password) — must
+# never be baked into the image; the cluster injects config via env/secret instead.
+**/appsettings.Local.json
 *.md
 Dockerfile
 .dockerignore
