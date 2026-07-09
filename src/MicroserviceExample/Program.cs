@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using MicroserviceExample.Data;
 using MicroserviceExample.Endpoints;
@@ -22,6 +23,16 @@ builder.Services.AddHealthChecks()
 
 builder.Services.AddOpenApi();
 
+// Behind the Envoy gateway, TLS is terminated at the edge and the request reaches
+// this app over plain HTTP. Honor X-Forwarded-Proto so Request.Scheme reflects the
+// original https, so the OpenAPI `servers` URL (and Swagger "Try it out") uses https.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownNetworks.Clear();   // only the in-cluster gateway can reach the pod
+    o.KnownProxies.Clear();
+});
+
 var app = builder.Build();
 
 // One-shot migration mode: `dotnet MicroserviceExample.dll migrate` (used by the
@@ -32,6 +43,9 @@ if (args.Contains("migrate"))
     await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
     return;
 }
+
+// Must run before MapOpenApi so the corrected scheme is baked into the OpenAPI doc.
+app.UseForwardedHeaders();
 
 // OpenAPI document + interactive Swagger UI. Enabled in all environments for this
 // lab; gate behind app.Environment.IsDevelopment() (or auth) for real production.
